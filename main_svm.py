@@ -39,22 +39,23 @@ class SVMModel:
     """
 
     def __init__(self, C=1.0, kernel='rbf'):
-        pass
+        self.svm = SVC(C=C, kernel=kernel)
 
     def train(self, train_data, train_targets):
-        pass
+        self.svm.fit(train_data, train_targets)
 
 
     def evaluate(self, data, targets):
-        pass
+        predictions = self.svm.predict(data)
+        return np.mean(predictions == targets)
 
 class SVMFromScratch:
-    def __init__(self, lr=0.001, num_iter=200, c=0.01):
+    def __init__(self, lr=0.001, num_iter=200, C=0.01):
         self.lr = lr
         self.num_iter = num_iter
         self.weights = None
         self.bias = 0
-        self.C = c
+        self.C = C
         self.mean = None
         self.std = None
 
@@ -89,7 +90,6 @@ class SVMFromScratch:
         self.std = np.std(X, axis=0)
         self.std[self.std == 0] = 1e-3   
         X = self.standardize(X)  
-
         num_samples, num_features = X.shape
         # Initialize weights and biases
         self.weights = np.zeros(num_features)
@@ -100,12 +100,18 @@ class SVMFromScratch:
                 pass
                 # ### Todo
                 # ### Calculate the output of a svm model
-                # svm_output = 
+                #W^T * X[i] + b = svm_output
+                svm_output = self.weights.T.dot(X[i]) + self.bias
                 # ### Calculate the gradient dw, db  (提示：根据y[i]与svm_output是否符号一致，分类讨论dw，db)
-                
+                if y[i] * svm_output < 1:
+                    dw = self.weights - self.C*y[i]*X[i]
+                    db = -self.C*y[i]
+                else:
+                    dw = self.weights
+                    db = 0
                 # ### Update weights and bias
-                # self.weights -= 
-                # self.bias -= 
+                self.weights -= self.lr *dw
+                self.bias -= self.lr * db
 
             
             if iteration % 10 == 0:
@@ -143,6 +149,35 @@ def data_preprocess(args):
     
     for task in range(1, 56):
         task_col = cast.iloc[:, task]
+        train_data = []
+        train_targets = []
+        test_data = []
+        test_targets = []
+        
+        # Process each protein sample
+        for i in range(len(task_col)):
+            # Value 1: positive train sample
+            if task_col.iloc[i] == 1:
+                train_data.append(diagrams[i])
+                train_targets.append(1)
+            # Value 2: negative train sample
+            elif task_col.iloc[i] == 2:
+                train_data.append(diagrams[i])
+                train_targets.append(0)
+            # Value 3: positive test sample
+            elif task_col.iloc[i] == 3:
+                test_data.append(diagrams[i])
+                test_targets.append(1)
+            # Value 4: negative test sample
+            elif task_col.iloc[i] == 4:
+                test_data.append(diagrams[i])
+                test_targets.append(0)
+        
+        # Convert to numpy arrays for sklearn compatibility
+        train_data = np.array(train_data)
+        train_targets = np.array(train_targets)
+        test_data = np.array(test_data)
+        test_targets = np.array(test_targets)
 
         #### Todo: Try to load data/target
         
@@ -160,8 +195,8 @@ def main(args):
     
     ## Todo:Model Initialization 
     ## You can also consider other different settings
-    # model = SVMModel(C=args.C,kernel=args.kernel)
-    model = SVMFromScratch()
+    model = SVMModel(C=args.C,kernel=args.kernel)
+    #model = SVMFromScratch(C=args.C)
 
 
     for i in range(len(data_list)):
